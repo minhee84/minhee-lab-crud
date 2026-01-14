@@ -1,112 +1,103 @@
-import { useState } from 'react';
 import { atom, useAtom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import styled from 'styled-components';
+import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom';
 
-// 1. Jotai Store: 브라우저 LocalStorage에 'topics_data'라는 키로 자동 저장
 const topicsAtom = atomWithStorage('topics_data', [
   { id: 1, title: 'html', body: 'html is ...' },
   { id: 2, title: 'css', body: 'css is ...' },
   { id: 3, title: 'javascript', body: 'javascript is ...' },
 ]);
-const modeAtom = atom('WELCOME');
-const selectedIdAtom = atom(null);
 
-// 2. Styled Components: 전체 레이아웃 스타일
-const Container = styled.div`
+const Layout = styled.div`
   padding: 40px;
   max-width: 600px;
   margin: 0 auto;
-  background-color: white;
-  min-height: 100vh;
-  color: #333;
 `;
 
 const NavList = styled.ol`
-  padding: 20px 0;
-  border-bottom: 1px solid #eee;
-  li { margin: 10px 0; }
-  a { color: #007bff; text-decoration: none; font-weight: bold; }
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 20px;
+  li { margin: 12px 0; }
+  a { text-decoration: none; color: #007bff; font-weight: bold; }
 `;
 
-const ButtonGroup = styled.ul`
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-  button { padding: 8px 16px; cursor: pointer; }
-`;
+function Read() {
+  const [topics, setTopics] = useAtom(topicsAtom);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const topic = topics.find(t => t.id === Number(id));
 
-// 3. Components
-function Article({ title, body }) {
+  if (!topic) return <p>글을 찾을 수 없습니다.</p>;
+
   return (
     <article>
-      <h2>{title}</h2>
-      <p style={{ whiteSpace: 'pre-wrap' }}>{body}</p>
+      <h2>{topic.title}</h2>
+      <p style={{ whiteSpace: 'pre-wrap' }}>{topic.body}</p>
+      <button onClick={() => {
+        if (window.confirm('삭제할까요?')) {
+          setTopics(topics.filter(t => t.id !== Number(id)));
+          navigate('/');
+        }
+      }}>삭제</button>
     </article>
   );
 }
 
-export default function App() {
+function Create() {
   const [topics, setTopics] = useAtom(topicsAtom);
-  const [mode, setMode] = useAtom(modeAtom);
-  const [id, setId] = useAtom(selectedIdAtom);
+  const navigate = useNavigate();
 
-  const selectedTopic = topics.find(t => t.id === id);
-
-  let content = null;
-  let contextControl = null;
-
-  if (mode === 'WELCOME') {
-    content = <Article title="Welcome" body="Hello, WEB CRUD with Jotai" />;
-  } else if (mode === 'READ' && selectedTopic) {
-    content = <Article title={selectedTopic.title} body={selectedTopic.body} />;
-    contextControl = (
-      <>
-        <li><button onClick={() => {
-          const newTopics = topics.filter(t => t.id !== id);
-          setTopics(newTopics);
-          setMode('WELCOME');
-        }}>Delete</button></li>
-      </>
-    );
-  } else if (mode === 'CREATE') {
-    content = (
-      <form onSubmit={e => {
-        e.preventDefault();
-        const title = e.target.title.value;
-        const body = e.target.body.value;
-        const nextId = topics.length > 0 ? Math.max(...topics.map(t => t.id)) + 1 : 1;
-        setTopics([...topics, { id: nextId, title, body }]);
-        setId(nextId);
-        setMode('READ');
-      }}>
-        <h2>Create Topic</h2>
-        <p><input name="title" placeholder="title" style={{ width: '100%' }} required /></p>
-        <p><textarea name="body" placeholder="body" style={{ width: '100%', height: '100px' }} required /></p>
-        <p><input type="submit" value="Create" /></p>
-      </form>
-    );
-  }
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const title = e.target.title.value;
+    const body = e.target.body.value;
+    const nextId = topics.length > 0 ? Math.max(...topics.map(t => t.id)) + 1 : 1;
+    setTopics([...topics, { id: nextId, title, body }]);
+    navigate(`/read/${nextId}`);
+  };
 
   return (
-    <Container>
+    <form onSubmit={handleSubmit}>
+      <h2>새 글 쓰기</h2>
+      <p><input name="title" placeholder="제목" style={{ width: '100%' }} required /></p>
+      <p><textarea name="body" placeholder="내용" style={{ width: '100%', height: '100px' }} required /></p>
+      <button type="submit">저장</button>
+    </form>
+  );
+}
+
+function MainContents() {
+  const [topics] = useAtom(topicsAtom);
+  return (
+    <Layout>
       <header>
-        <h1><a href="/" onClick={e => { e.preventDefault(); setMode('WELCOME'); }} style={{ color: 'black', textDecoration: 'none' }}>WEB</a></h1>
+        <h1><Link to="/" style={{ color: 'black' }}>WEB CRUD</Link></h1>
       </header>
       <NavList>
         {topics.map(t => (
           <li key={t.id}>
-            <a href={'/read/' + t.id} onClick={e => { e.preventDefault(); setId(t.id); setMode('READ'); }}>{t.title}</a>
+            <Link to={`/read/${t.id}`}>{t.title}</Link>
           </li>
         ))}
       </NavList>
-      {content}
-      <ButtonGroup>
-        <li><button onClick={() => setMode('CREATE')}>Create New</button></li>
-        {contextControl}
-      </ButtonGroup>
-    </Container>
+      <Routes>
+        <Route path="/" element={<p>Welcome - test</p>} />
+        <Route path="/read/:id" element={<Read />} />
+        <Route path="/create" element={<Create />} />
+      </Routes>
+      <div style={{ marginTop: '30px' }}>
+        <Link to="/create"><button>새 글 만들기</button></Link>
+      </div>
+    </Layout>
+  );
+}
+
+// 최종 내보내기에서 BrowserRouter로 감싸기
+export default function App() {
+  return (
+    <BrowserRouter>
+      <MainContents />
+    </BrowserRouter>
   );
 }
