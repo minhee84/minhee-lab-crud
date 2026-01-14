@@ -1,2 +1,2 @@
 # minhee-lab
-Frontend developer portfolio with projects, UI components, and technical experiments
+Frontend developer portfolio with projects, UI components, and technical experiments.
